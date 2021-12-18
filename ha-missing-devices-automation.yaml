@@ -1,0 +1,12 @@
+alias: 'Devices: notify when some devices are missing'
+description: ''
+trigger:
+  - platform: event
+    event_type: event_vanished_devices
+condition: []
+action:
+  - service: notify.persistent_notification
+    data:
+      message: 'These devices are missing: {{trigger.event.data.vanishedDevicesString}}'
+      title: Vanished devices
+mode: single
