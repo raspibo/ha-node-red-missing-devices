@@ -1,1 +1,170 @@
-[{"id":"6d11589497bb51e8","type":"inject","z":"8d8f341c.4e01a","name":"periodic trigger","props":[{"p":"payload"},{"p":"topic","vt":"str"}],"repeat":"60","crontab":"","once":false,"onceDelay":0.1,"topic":"","payloadType":"date","x":120,"y":940,"wires":[["f91f8f76e721757b"]]},{"id":"f91f8f76e721757b","type":"api-render-template","z":"8d8f341c.4e01a","name":"get entities info","server":"4bebe2c9.5ecb64","version":0,"template":"[\n{% set devices = {} %}\n{% for state in states %}\n  {%- if state %}\n    {% set deviceID = device_id(state.entity_id) %}\n    {%- if state.entity_id and deviceID and state.last_updated %}\n  {\n    \"device_id\": \"{{deviceID}}\",\n    \"device_class\": \"{{state.attributes.device_class|default('')}}\",\n    \"device_name\": \"{{device_attr(deviceID, \"name\")|regex_replace(find='[\\'\\\\\\\\]', replace='', ignorecase=False)}}\",\n    \"entity_id\": \"{{state.entity_id}}\",\n    \"last_updated\": \"{{state.last_updated}}\",\n  },\n    {%- endif %}\n  {%- endif %}\n{%- endfor %}\n]","resultsLocation":"payload","resultsLocationType":"msg","templateLocation":"template","templateLocationType":"msg","x":320,"y":940,"wires":[["0fffbce0b6721b45"]]},{"id":"0fffbce0b6721b45","type":"function","z":"8d8f341c.4e01a","name":"check for inactive devices","func":"// detect devices that are inactive since the given number of hours\nconst MAX_INACTIVITY_HOURS = 12;\n// add the huge devices and batteryDevices objects and keep the template in msg\nconst DEBUG = false;\n// ignore these device IDs\nconst SKIP_DEVICES_BY_ID = [];\n// ignore these device names\nconst SKIP_DEVICES_BY_NAME = [];\n\nvar _MAX_INACTIVITY_MS = 1000 * 60 * 60 * MAX_INACTIVITY_HOURS;\n// yup, an eval. Anyway, we built the payload string\n// from the list of devices and entities, so this should\n// not alarm you too much\nvar items = eval(msg.payload);\nvar devices = {};\nvar batteryDevices = [];\nvar vanishedDevices = [];\nvar vanishedDeviceNames = [];\n\n// group entities by device, and check which ones are battery-powered\nfor (const item of items) {\n    var deviceID = item[\"device_id\"];\n    var deviceName = item[\"device_name\"];\n    var deviceClass = item[\"device_class\"];\n    var lastUpdatedStr = item[\"last_updated\"];\n    if (!deviceID || !deviceName || !lastUpdatedStr) {\n        continue;\n    }\n    var lastUpdatedMS = Date.parse(lastUpdatedStr);\n    if (!lastUpdatedMS) {\n        continue;\n    }\n    var lastUpdated = new Date(lastUpdatedMS);\n    if (!devices.hasOwnProperty(deviceID)) {\n        devices[deviceID] = {\n            \"device_id\": deviceID,\n            \"device_name\": deviceName,\n            \"last_updated\": lastUpdated\n        };\n    } else {\n        if (devices[deviceID][\"last_updated\"] < lastUpdated) {\n            devices[deviceID][\"last_updated\"] = lastUpdated;\n        }\n    }\n    if (SKIP_DEVICES_BY_ID.includes(deviceID) || SKIP_DEVICES_BY_NAME.includes(deviceName)) {\n        continue;\n    }\n    if (deviceClass == \"battery\") {\n        batteryDevices.push(deviceID);\n    }\n}\n\n// check which devices are inactive\nvar now = new Date();\nfor (const deviceID of batteryDevices) {\n    var device = devices[deviceID];\n    if (now - device[\"last_updated\"] >= _MAX_INACTIVITY_MS) {\n        vanishedDevices.push(device);\n        vanishedDeviceNames.push(device[\"device_name\"]);\n    }\n}\nvanishedDeviceNames.sort();\n\nif (DEBUG) {\n    msg.devices = devices;\n    msg.batteryDevices = batteryDevices;\n} else {\n    delete msg.template;\n}\n\nmsg.topic = \"vanished-devices\";\nmsg.payload = vanishedDevices;\nmsg.vanishedDevicesString = vanishedDeviceNames.join(\", \");\nmsg.numberOfVanishedDevices = vanishedDevices.length;\nreturn msg;","outputs":1,"noerr":0,"initialize":"","finalize":"","libs":[],"x":410,"y":1000,"wires":[["19f653103f6f1b58"]]},{"id":"19f653103f6f1b58","type":"rbe","z":"8d8f341c.4e01a","name":"trigger on changes","func":"deadband","gap":"0","start":"","inout":"out","septopics":false,"property":"numberOfVanishedDevices","topi":"topic","x":470,"y":1060,"wires":[["2853e0c786db5043"]]},{"id":"2853e0c786db5043","type":"ha-fire-event","z":"8d8f341c.4e01a","name":"raise event_vanished_devices","server":"4bebe2c9.5ecb64","version":0,"event":"event_vanished_devices","data":"msg","dataType":"jsonata","x":590,"y":1120,"wires":[["d64215efa72e61af"]]},{"id":"d64215efa72e61af","type":"debug","z":"8d8f341c.4e01a","name":"","active":true,"tosidebar":true,"console":false,"tostatus":true,"complete":"true","targetType":"full","statusVal":"payload","statusType":"auto","x":790,"y":1120,"wires":[]},{"id":"bfc79343e5525037","type":"comment","z":"8d8f341c.4e01a","name":"check for vanished devices","info":"","x":150,"y":880,"wires":[]},{"id":"4bebe2c9.5ecb64","type":"server","name":"Home Assistant","version":1,"addon":false,"rejectUnauthorizedCerts":true,"ha_boolean":"y|yes|true|on|home|open","connectionDelay":true,"cacheJson":true}]
+[
+    {
+        "id": "6d11589497bb51e8",
+        "type": "inject",
+        "z": "8d8f341c.4e01a",
+        "name": "periodic trigger",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "60",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payloadType": "date",
+        "x": 120,
+        "y": 940,
+        "wires": [
+            [
+                "f91f8f76e721757b"
+            ]
+        ]
+    },
+    {
+        "id": "f91f8f76e721757b",
+        "type": "api-render-template",
+        "z": "8d8f341c.4e01a",
+        "name": "get entities info",
+        "server": "4bebe2c9.5ecb64",
+        "version": 0,
+        "template": "[\n{% set devices = {} %}\n{% for state in states %}\n  {%- if state %}\n    {% set deviceID = device_id(state.entity_id) %}\n    {%- if state.entity_id and deviceID and state.last_updated %}\n  {\n    \"device_id\": \"{{deviceID}}\",\n    \"device_class\": \"{{state.attributes.device_class|default('')}}\",\n    \"device_name\": \"{{device_attr(deviceID, \"name\")|regex_replace(find='[\\'\\\\\\\\]', replace='', ignorecase=False)}}\",\n    \"entity_id\": \"{{state.entity_id}}\",\n    \"last_updated\": \"{{state.last_updated}}\",\n  },\n    {%- endif %}\n  {%- endif %}\n{%- endfor %}\n]",
+        "resultsLocation": "payload",
+        "resultsLocationType": "msg",
+        "templateLocation": "template",
+        "templateLocationType": "msg",
+        "x": 320,
+        "y": 940,
+        "wires": [
+            [
+                "0fffbce0b6721b45"
+            ]
+        ]
+    },
+    {
+        "id": "0fffbce0b6721b45",
+        "type": "function",
+        "z": "8d8f341c.4e01a",
+        "name": "check for inactive devices",
+        "func": "// detect devices that are inactive since the given number of hours\nconst MAX_INACTIVITY_HOURS = 12;\n// add the huge devices and batteryDevices objects and keep the template in msg\nconst DEBUG = false;\n// ignore these device IDs\nconst SKIP_DEVICES_BY_ID = [];\n// ignore these device names\nconst SKIP_DEVICES_BY_NAME = [];\n\nvar _MAX_INACTIVITY_MS = 1000 * 60 * 60 * MAX_INACTIVITY_HOURS;\n// yup, an eval. Anyway, we built the payload string\n// from the list of devices and entities, so this should\n// not alarm you too much\nvar items = eval(msg.payload);\nvar devices = {};\nvar batteryDevices = [];\nvar vanishedDevices = [];\nvar vanishedDeviceNames = [];\n\n// group entities by device, and check which ones are battery-powered\nfor (const item of items) {\n    var deviceID = item[\"device_id\"];\n    var deviceName = item[\"device_name\"];\n    var deviceClass = item[\"device_class\"];\n    var lastUpdatedStr = item[\"last_updated\"];\n    if (!deviceID || !deviceName || !lastUpdatedStr) {\n        continue;\n    }\n    var lastUpdatedMS = Date.parse(lastUpdatedStr);\n    if (!lastUpdatedMS) {\n        continue;\n    }\n    var lastUpdated = new Date(lastUpdatedMS);\n    if (!devices.hasOwnProperty(deviceID)) {\n        devices[deviceID] = {\n            \"device_id\": deviceID,\n            \"device_name\": deviceName,\n            \"last_updated\": lastUpdated\n        };\n    } else {\n        if (devices[deviceID][\"last_updated\"] < lastUpdated) {\n            devices[deviceID][\"last_updated\"] = lastUpdated;\n        }\n    }\n    if (SKIP_DEVICES_BY_ID.includes(deviceID) || SKIP_DEVICES_BY_NAME.includes(deviceName)) {\n        continue;\n    }\n    if (deviceClass == \"battery\") {\n        batteryDevices.push(deviceID);\n    }\n}\n\n// check which devices are inactive\nvar now = new Date();\nfor (const deviceID of batteryDevices) {\n    var device = devices[deviceID];\n    if (now - device[\"last_updated\"] >= _MAX_INACTIVITY_MS) {\n        vanishedDevices.push(device);\n        vanishedDeviceNames.push(device[\"device_name\"]);\n    }\n}\nvanishedDeviceNames.sort();\n\nif (DEBUG) {\n    msg.devices = devices;\n    msg.batteryDevices = batteryDevices;\n} else {\n    delete msg.template;\n}\n\nmsg.topic = \"vanished-devices\";\nmsg.payload = vanishedDevices;\nmsg.vanishedDevicesString = vanishedDeviceNames.join(\", \");\nmsg.numberOfVanishedDevices = vanishedDevices.length;\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 410,
+        "y": 1000,
+        "wires": [
+            [
+                "3e83e600a6eb647c"
+            ]
+        ]
+    },
+    {
+        "id": "3e83e600a6eb647c",
+        "type": "switch",
+        "z": "8d8f341c.4e01a",
+        "name": "some devices are gone",
+        "property": "numberOfVanishedDevices",
+        "propertyType": "msg",
+        "rules": [
+            {
+                "t": "gt",
+                "v": "0",
+                "vt": "num"
+            }
+        ],
+        "checkall": "true",
+        "repair": false,
+        "outputs": 1,
+        "x": 350,
+        "y": 1060,
+        "wires": [
+            [
+                "19f653103f6f1b58"
+            ]
+        ]
+    },
+    {
+        "id": "19f653103f6f1b58",
+        "type": "rbe",
+        "z": "8d8f341c.4e01a",
+        "name": "trigger on changes",
+        "func": "deadband",
+        "gap": "0",
+        "start": "",
+        "inout": "in",
+        "septopics": false,
+        "property": "numberOfVanishedDevices",
+        "topi": "topic",
+        "x": 590,
+        "y": 1060,
+        "wires": [
+            [
+                "2853e0c786db5043"
+            ]
+        ]
+    },
+    {
+        "id": "2853e0c786db5043",
+        "type": "ha-fire-event",
+        "z": "8d8f341c.4e01a",
+        "name": "raise event_vanished_devices",
+        "server": "4bebe2c9.5ecb64",
+        "version": 0,
+        "event": "event_vanished_devices",
+        "data": "msg",
+        "dataType": "jsonata",
+        "x": 590,
+        "y": 1120,
+        "wires": [
+            [
+                "d64215efa72e61af"
+            ]
+        ]
+    },
+    {
+        "id": "d64215efa72e61af",
+        "type": "debug",
+        "z": "8d8f341c.4e01a",
+        "name": "",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": true,
+        "complete": "true",
+        "targetType": "full",
+        "statusVal": "payload",
+        "statusType": "auto",
+        "x": 790,
+        "y": 1120,
+        "wires": []
+    },
+    {
+        "id": "bfc79343e5525037",
+        "type": "comment",
+        "z": "8d8f341c.4e01a",
+        "name": "check for vanished devices",
+        "info": "",
+        "x": 150,
+        "y": 880,
+        "wires": []
+    },
+    {
+        "id": "4bebe2c9.5ecb64",
+        "type": "server",
+        "name": "Home Assistant",
+        "version": 1,
+        "addon": false,
+        "rejectUnauthorizedCerts": true,
+        "ha_boolean": "y|yes|true|on|home|open",
+        "connectionDelay": true,
+        "cacheJson": true
+    }
+]
