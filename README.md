@@ -1,6 +1,6 @@
 # Home Assistant Node-RED check for missing devices
 
-With this Node-RED flow and a Home Assistant automation you will be able to check if a device has gone missing.
+With this Node-RED flow and a Home Assistant automation you will be able to check if a battery-powered device has gone missing.
 
 
 ## How it works
@@ -55,22 +55,32 @@ You can use the following items, from the `trigger.event.data` object.
 
 On Node-RED, edit the *periodic trigger* node.
 
-**Home can I change the time used to consider a device as vanished?**
+**How can I change the time used to consider a device as vanished?**
 
 On Node-RED, edit the *check for inactive devices* node and change the `MAX_INACTIVITY_HOURS` constant.
 
-**Home can I exclude a device by its ID or name?**
+**How can I exclude a device by its ID or name?**
 
 On Node-RED, edit the *check for inactive devices* node and edit the `SKIP_DEVICES_BY_ID` and/or `SKIP_DEVICES_BY_NAME` constants.
 
-**Home can I receive a different kind of notifications?**
+**How can I receive a different kind of notifications?**
 
 On Home Assistant, create an automation that is triggered by the `event_vanished_devices` event.
+
+**Would it be possible to do this purely on Home Assistant?**
+
+Probably it can be done as a pure Home Assistant automation (or - even better - blueprint), but it's not so easy.
+
+First of all, you will probably need to extract the information using a template anyway, since a Python script is too limited and can't (as far as I know) gather all the information we need about entities and devices.
+
+**I have an idea for an improvement, how can I help?**
+
+Just submit a pull request. I've already created a list of issues with the first ideas that comes to mind.
 
 
 ## Copyright and license
 
-Copyright 2021 Davide Alberani <da@erlug.linux.it>
+Copyright 2021 Davide Alberani <da@mimante.net>
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
